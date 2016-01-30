@@ -33,6 +33,7 @@
 #include "audio_filter.h"
 #include "audio_ramp.h"
 #include "ar_envelope.h"
+#include "sequencer.h"
 #include "fsl_port.h"
 #include "fsl_gpio.h"
 #include "fsl_fxos.h"
@@ -53,26 +54,28 @@ class SineGenerator : public AudioFilter
 {
 public:
     SineGenerator()
-    :   m_sinFreq(0),
-        m_currRadians(0),
-        m_trigger("trig"),
-        m_env()
+    :   m_delta(0),
+        m_sinFreq(0),
+        m_phase(0),
+        m_env(),
+        m_previous(0),
+        m_seq(NULL)
     {
     }
 
     void set_freq(float freq) { m_sinFreq = freq; }
+    void set_sequence(Sequencer * seq) { m_seq = seq; }
     void init();
 
     virtual void process(float * samples, uint32_t count);
 
-    void trigger();
-
 protected:
+    float m_delta;
     float m_sinFreq; // 80 Hz
-    float m_currRadians;
-    Ar::StaticQueue<int, 2> m_trigger;
-//     volatile bool m_trigger;
+    float m_phase;
     AREnvelope m_env;
+    float m_previous;
+    Sequencer * m_seq;
 };
 
 //------------------------------------------------------------------------------
@@ -93,13 +96,14 @@ uint32_t g_xtal32Freq = 32768U;
 float g_audioBuf[BUFFER_SIZE];
 int16_t g_outBuf[BUFFER_NUM][BUFFER_SIZE * CHANNEL_NUM];
 
-float g_sampleRate = 32000.0f; // 32kHz
+const float kSampleRate = 32000.0f; // 32kHz
 float g_sinFreq = 80.0f; // 80 Hz
 float g_currRadians = 0.0f;
 
 AudioOutput g_audioOut;
 AudioOutputConverter g_audioOutConverter;
 SineGenerator g_sinGen;
+Sequencer g_seq;
 i2c_master_handle_t g_i2cHandle;
 fxos_handle_t g_fxos;
 
@@ -115,54 +119,59 @@ void my_timer_fn(Ar::Timer * t, void * arg)
 
     GPIO_TogglePinsOutput(GPIOA, (1 << 1)|(1 << 2));
     GPIO_TogglePinsOutput(GPIOD, (1 << 5));
-
-    g_sinGen.trigger();
 }
 Ar::Timer g_myTimer("mine", my_timer_fn, 0, kArPeriodicTimer, 1500);
 
 void SineGenerator::init()
 {
+    m_delta = 2.0f * PI * (m_sinFreq / m_sampleRate);
+
     m_env.set_sample_rate(get_sample_rate());
     m_env.set_curve_type(AREnvelope::kAttack, AudioRamp::kLinear);
     m_env.set_curve_type(AREnvelope::kRelease, AudioRamp::kLinear);
-    m_env.set_length_in_seconds(AREnvelope::kAttack, 0.05f);
-    m_env.set_length_in_seconds(AREnvelope::kRelease, 1.5f);
+    m_env.set_length_in_seconds(AREnvelope::kAttack, 0.01f);
+    m_env.set_length_in_seconds(AREnvelope::kRelease, 1.0f);
 }
 
 void SineGenerator::process(float * samples, uint32_t count)
 {
-    float delta = 2.0f * PI * (m_sinFreq / m_sampleRate);
-
     // Check for a trigger.
-    int trig;
-    ar_status_t status = m_trigger.receive(&trig, kArNoTimeout);
-    bool isTriggered = status == kArSuccess && trig == 1;
-//     bool isTriggered = m_trigger;
-
-    int i;
+    int triggerSample = m_seq->get_next_event(count);
+    bool needsRestartOnZeroCrossing = false;
+    float previous = m_previous;
     float * sample = samples;
+    int i;
     for (i = 0; i < count; ++i)
     {
-        float f = arm_sin_f32(m_currRadians);
-        *sample++ = f * m_env.next();
-
-        m_currRadians += delta;
-        if (m_currRadians >= 2.0f * PI)
+        // Detect trigger point.
+        if (triggerSample == i)
         {
-            m_currRadians = 0.0f;
+            needsRestartOnZeroCrossing = true;
         }
-        if (isTriggered && m_currRadians == 0.0f)
+
+        float f = arm_sin_f32(m_phase);
+        float v = f * m_env.next();
+        *sample++ = v;
+
+        // After triggered, restart  on a zero crossing to prevent popping.
+        bool zeroCrossing = ((previous >= 0.0f && v <= 0.0f) || (previous <= 0.0f && v >= 0.0f));
+        if (needsRestartOnZeroCrossing && zeroCrossing)
         {
             m_env.reset();
-//             m_trigger = false;
+            m_phase = 0.0f;
+            needsRestartOnZeroCrossing = false;
         }
-    }
-}
 
-void SineGenerator::trigger()
-{
-    m_trigger.send(1, kArNoTimeout);
-//     m_trigger = true;
+        m_phase += m_delta;
+        if (m_phase >= 2.0f * PI)
+        {
+            m_phase = 0.0f;
+        }
+
+        previous = v;
+    }
+
+    m_previous = previous;
 }
 
 void accel_thread(void * arg)
@@ -208,6 +217,7 @@ void init_audio_out()
     I2C_MasterTransferCreateHandle(I2C0, &g_i2cHandle, NULL, NULL);
 
     g_audioOut.init(&format, I2C0, &g_i2cHandle);
+//     g_audioOut.dump_sgtl5000();
 
     AudioOutput::Buffer buf;
     buf.dataSize = BUFFER_SIZE * CHANNEL_NUM * sizeof(int16_t);
@@ -221,11 +231,15 @@ void init_audio_out()
     g_audioOutConverter.set_buffer(audioBuf);
     g_audioOutConverter.set_source(&g_sinGen);
 
-    g_sinGen.set_sample_rate(32000.0f);
+    g_seq.set_sample_rate(kSampleRate);
+    g_seq.set_tempo(100.0f);
+    g_seq.set_sequence("x---x---x---x-x-x---x---x---x---xx--x--x--xxx-x-");
+    g_seq.init();
+
+    g_sinGen.set_sample_rate(kSampleRate);
+    g_sinGen.set_sequence(&g_seq);
     g_sinGen.set_freq(50.0f);
     g_sinGen.init();
-
-//     g_audioOut.dump_sgtl5000();
 }
 
 void init_board()

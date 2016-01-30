@@ -29,6 +29,8 @@
 
 #include "sequencer.h"
 #include <string.h>
+#include <assert.h>
+#include <stdlib.h>
 
 //------------------------------------------------------------------------------
 // Code
@@ -38,14 +40,128 @@ Sequencer::Sequencer()
 :   m_sampleRate(0.0f),
     m_tempo(0.0f),
     m_samplesPerBeat(0.0f),
-    m_trackCount(0)
+    m_firstEvent(NULL),
+    m_lastEvent(NULL),
+    m_freeEvents(NULL),
+    m_sequence(NULL),
+    m_sequenceLength(0),
+    m_sequenceTime(0),
+    m_elapsed(0)
 {
-    memset(m_tracks, 0, sizeof(m_tracks));
+    memset(m_events, 0, sizeof(Event));
 }
 
 void Sequencer::init()
 {
-    m_samplesPerBeat = m_sampleRate * 60.0 / m_tempo;
+    m_samplesPerBeat = static_cast<uint32_t>(m_sampleRate * 60.0 / m_tempo);
+
+    m_sequenceLength = strlen(m_sequence);
+    m_sequenceTime = m_sequenceLength * m_samplesPerBeat;
+
+    // Put all events on free list.
+    int i;
+    m_freeEvents = &m_events[0];
+    for (i = 0; i < kMaxEvents - 1; ++i)
+    {
+        m_events[i].m_next = &m_events[i + 1];
+    }
+
+    // Queue up the sequence.
+    enqueue_sequence(0);
+}
+
+int Sequencer::get_next_event(uint32_t count)
+{
+    uint32_t originalElapsed = m_elapsed;
+
+    m_elapsed += count;
+    if (m_elapsed > m_sequenceTime)
+    {
+        originalElapsed = 0;
+        m_elapsed = count;
+        enqueue_sequence(count);
+    }
+
+    Event * ev = m_firstEvent;
+    if (!ev)
+    {
+        return -1;
+    }
+
+    if (m_elapsed <= ev->m_timestamp)
+    {
+        return -1;
+    }
+
+    uint32_t result = ev->m_timestamp - originalElapsed;
+
+    pop_event();
+    push_free_event(ev);
+
+    return result;
+}
+
+void Sequencer::enqueue_sequence(uint32_t startOffset)
+{
+    uint32_t timestamp = startOffset;
+    int i;
+    for (i = 0; i < m_sequenceLength; ++i)
+    {
+        char c = m_sequence[i];
+
+        if (c == 'x')
+        {
+            Event * ev = pop_free_event();
+            ev->m_timestamp = timestamp;
+            append_event(ev);
+        }
+
+        timestamp += m_samplesPerBeat;
+    }
+}
+
+Sequencer::Event * Sequencer::pop_free_event()
+{
+    assert(m_freeEvents);
+    Event * ev = m_freeEvents;
+    m_freeEvents = ev->m_next;
+    ev->m_next = NULL;
+    return ev;
+}
+
+void Sequencer::push_free_event(Event * ev)
+{
+    ev->m_next = m_freeEvents;
+    m_freeEvents = ev;
+}
+
+Sequencer::Event * Sequencer::pop_event()
+{
+    Event * ev = m_firstEvent;
+    if (ev)
+    {
+        m_firstEvent = ev->m_next;
+        ev->m_next = NULL;
+        if (m_lastEvent == ev)
+        {
+            m_lastEvent = NULL;
+        }
+    }
+    return ev;
+}
+
+void Sequencer::append_event(Event * ev)
+{
+    if (m_lastEvent)
+    {
+        m_lastEvent->m_next = ev;
+    }
+    ev->m_next = NULL;
+    m_lastEvent = ev;
+    if (!m_firstEvent)
+    {
+        m_firstEvent = ev;
+    }
 }
 
 //------------------------------------------------------------------------------

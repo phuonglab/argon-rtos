@@ -30,6 +30,7 @@
 #define _SEQUENCER_H_
 
 #include <stdint.h>
+#include <stddef.h>
 
 //------------------------------------------------------------------------------
 // Definitions
@@ -37,67 +38,69 @@
 
 /*!
  * @brief Audio event sequencer.
+ *
+ * Tracks trigger events within a musical sequence. Only simple triggers are supported,
+ * not note numbers or values.
+ *
+ * Uses a simple sequence chart in string format. Each character of the string represents
+ * one beat. An "x" character causes an event to fire for that beat. Any other character
+ * is ignored.
+ *
+ * An example two bar sequence might be: "x---x-x-"
  */
 class Sequencer
 {
 public:
-    class Event;
-    class Track;
 
     Sequencer();
     ~Sequencer() {}
 
     void set_sample_rate(float rate) { m_sampleRate = rate; }
     void set_tempo(float tempo) { m_tempo = tempo; }
+    void set_sequence(const char * seq) { m_sequence = seq; }
 
     void init();
 
-    void add_track(Track * track);
+    int get_next_event(uint32_t count);
+
 
 protected:
+    /*!
+     *
+     */
+    struct Event
+    {
+        uint32_t m_timestamp;
+        Event * m_next;
+
+        Event(uint32_t timestamp=0) : m_timestamp(timestamp), m_next(NULL) {}
+    };
+
     enum {
-        kMaxTracks = 4,
+        kMaxEvents = 32,
     };
 
     float m_sampleRate;
     float m_tempo;
-    float m_samplesPerBeat;
-    Track * m_tracks[kMaxTracks];
-    uint32_t m_trackCount;
+    uint32_t m_samplesPerBeat;
+    Event m_events[kMaxEvents];
+    Event * m_firstEvent;
+    Event * m_lastEvent;
+    Event * m_freeEvents;
+    const char * m_sequence; //!< The sequence chart as a string.
+    uint32_t m_sequenceLength; //!< Number of chars, and therefore beats, of the sequence.
+    uint32_t m_sequenceTime; //!< Length of time in samples of the entire sequence.
+    uint32_t m_elapsed;
+
+    void enqueue_sequence(uint32_t startOffset);
+
+    Event * pop_free_event();
+    void push_free_event(Event * ev);
+
+    Event * pop_event();
+    void append_event(Event * ev);
 };
 
-/*!
- *
- */
-class Sequencer::Event
-{
-public:
-    Event(uint32_t timestamp=0) : m_timestamp(timestamp) {}
-
-    uint32_t get_timestamp() const { return m_timestmap; }
-    void set_timestamp(uint32_t timestamp) { m_timestamp = timestamp; }
-
-    Event * get_next() { return m_next; }
-    void set_next(Event * next) { m_next = next; }
-
-protected:
-    uint32_t m_timestamp;
-    Event * m_next;
-};
-
-/*!
- *
- */
-class Sequencer::Track
-{
-public:
-    Track() {}
-
-    void add_event(Sequencer::Event * event);
-
-protected:
-    Sequencer::Event * m_events[kMaxEvents];
-};
 
 #endif // _SEQUENCER_H_
 //------------------------------------------------------------------------------

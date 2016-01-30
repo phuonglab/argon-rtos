@@ -2125,6 +2125,12 @@
     <file>
       <name>$PROJ_DIR$\..\src\main.cpp</name>
     </file>
+    <file>
+      <name>$PROJ_DIR$\..\src\sequencer.cpp</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\src\sequencer.h</name>
+    </file>
   </group>
   <group>
     <name>startup</name>
