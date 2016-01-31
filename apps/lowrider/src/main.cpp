@@ -34,6 +34,7 @@
 #include "audio_ramp.h"
 #include "ar_envelope.h"
 #include "sequencer.h"
+#include "audio_mixer.h"
 #include "fsl_port.h"
 #include "fsl_gpio.h"
 #include "fsl_fxos.h"
@@ -94,6 +95,7 @@ uint32_t g_xtal0Freq = 8000000U;
 uint32_t g_xtal32Freq = 32768U;
 
 float g_audioBuf[BUFFER_SIZE];
+float g_mixBuf[BUFFER_SIZE];
 int16_t g_outBuf[BUFFER_NUM][BUFFER_SIZE * CHANNEL_NUM];
 
 const float kSampleRate = 32000.0f; // 32kHz
@@ -103,7 +105,10 @@ float g_currRadians = 0.0f;
 AudioOutput g_audioOut;
 AudioOutputConverter g_audioOutConverter;
 SineGenerator g_sinGen;
-Sequencer g_seq;
+SineGenerator g_bassGen;
+Sequencer g_kickSeq;
+Sequencer g_bassSeq;
+AudioMixer g_mixer;
 i2c_master_handle_t g_i2cHandle;
 fxos_handle_t g_fxos;
 
@@ -229,17 +234,33 @@ void init_audio_out()
     g_audioOut.set_source(&g_audioOutConverter);
     AudioBuffer audioBuf(&g_audioBuf[0], BUFFER_SIZE);
     g_audioOutConverter.set_buffer(audioBuf);
-    g_audioOutConverter.set_source(&g_sinGen);
+    g_audioOutConverter.set_source(&g_mixer);
 
-    g_seq.set_sample_rate(kSampleRate);
-    g_seq.set_tempo(100.0f);
-    g_seq.set_sequence("x---x---x---x-x-x---x---x---x---xx--x--x--xxx-x-");
-    g_seq.init();
+    g_kickSeq.set_sample_rate(kSampleRate);
+    g_kickSeq.set_tempo(100.0f);
+    g_kickSeq.set_sequence("x---x---x---x-x-x---x---x---x---xx--x--x--xxx-x-");
+    g_kickSeq.init();
 
     g_sinGen.set_sample_rate(kSampleRate);
-    g_sinGen.set_sequence(&g_seq);
-    g_sinGen.set_freq(50.0f);
+    g_sinGen.set_sequence(&g_kickSeq);
+    g_sinGen.set_freq(80.0f);
     g_sinGen.init();
+
+    g_bassSeq.set_sample_rate(kSampleRate);
+    g_bassSeq.set_tempo(100.0f);
+    g_bassSeq.set_sequence("--x-----");
+    g_bassSeq.init();
+
+    g_bassGen.set_sample_rate(kSampleRate);
+    g_bassGen.set_sequence(&g_bassSeq);
+    g_bassGen.set_freq(50.0f);
+    g_bassGen.init();
+
+    AudioBuffer mixBuf(&g_mixBuf[0], BUFFER_SIZE);
+    g_mixer.set_buffer(mixBuf);
+    g_mixer.set_input_count(2);
+    g_mixer.set_input(0, &g_sinGen, 0.5f);
+    g_mixer.set_input(1, &g_bassGen, 0.5f);
 }
 
 void init_board()

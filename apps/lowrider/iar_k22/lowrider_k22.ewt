@@ -2265,6 +2265,12 @@
       <name>$PROJ_DIR$\..\src\audio_filter.h</name>
     </file>
     <file>
+      <name>$PROJ_DIR$\..\src\audio_mixer.cpp</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\src\audio_mixer.h</name>
+    </file>
+    <file>
       <name>$PROJ_DIR$\..\src\audio_output.cpp</name>
     </file>
     <file>
