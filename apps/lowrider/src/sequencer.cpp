@@ -70,7 +70,7 @@ void Sequencer::init()
     enqueue_sequence(0);
 }
 
-int Sequencer::get_next_event(uint32_t count)
+Sequencer::Event Sequencer::get_next_event(uint32_t count)
 {
     uint32_t originalElapsed = m_elapsed;
 
@@ -82,18 +82,20 @@ int Sequencer::get_next_event(uint32_t count)
         enqueue_sequence(count);
     }
 
+    Event result(-1);
     Event * ev = m_firstEvent;
     if (!ev)
     {
-        return -1;
+        return result;
     }
 
     if (m_elapsed <= ev->m_timestamp)
     {
-        return -1;
+        return result;
     }
 
-    uint32_t result = ev->m_timestamp - originalElapsed;
+    result = *ev;
+    result.m_timestamp -= originalElapsed;
 
     pop_event();
     push_free_event(ev);
@@ -108,11 +110,29 @@ void Sequencer::enqueue_sequence(uint32_t startOffset)
     for (i = 0; i < m_sequenceLength; ++i)
     {
         char c = m_sequence[i];
+        Event * ev = NULL;
 
         if (c == 'x')
         {
-            Event * ev = pop_free_event();
+            ev = pop_free_event();
             ev->m_timestamp = timestamp;
+            ev->m_event = kTriggerEvent;
+        }
+        else if (c == 's')
+        {
+            ev = pop_free_event();
+            ev->m_timestamp = timestamp;
+            ev->m_event = kNoteStartEvent;
+        }
+        else if (c == 'p')
+        {
+            ev = pop_free_event();
+            ev->m_timestamp = timestamp;
+            ev->m_event = kNoteStopEvent;
+        }
+
+        if (ev)
+        {
             append_event(ev);
         }
 

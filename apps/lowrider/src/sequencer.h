@@ -52,6 +52,26 @@ class Sequencer
 {
 public:
 
+    enum event_type
+    {
+        kInvalidEvent,
+        kTriggerEvent,
+        kNoteStartEvent,
+        kNoteStopEvent
+    };
+
+    /*!
+     *
+     */
+    struct Event
+    {
+        Event * m_next;
+        int32_t m_timestamp;
+        event_type m_event;
+
+        Event(int32_t timestamp=0) : m_next(NULL), m_timestamp(timestamp), m_event(kInvalidEvent) {}
+    };
+
     Sequencer();
     ~Sequencer() {}
 
@@ -61,22 +81,12 @@ public:
 
     void init();
 
-    int get_next_event(uint32_t count);
-
+    Event get_next_event(uint32_t count);
 
 protected:
-    /*!
-     *
-     */
-    struct Event
+
+    enum
     {
-        uint32_t m_timestamp;
-        Event * m_next;
-
-        Event(uint32_t timestamp=0) : m_timestamp(timestamp), m_next(NULL) {}
-    };
-
-    enum {
         kMaxEvents = 32,
     };
 

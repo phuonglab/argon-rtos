@@ -34,31 +34,42 @@
 // Code
 //------------------------------------------------------------------------------
 
-AREnvelope::AREnvelope()
+ASREnvelope::ASREnvelope()
 :   AudioFilter(),
     m_attack(),
     m_release(),
-    m_peak(1.0f)
+    m_peak(1.0f),
+    m_sustain(1.0f),
+    m_enableSustain(false),
+    m_releaseOffset(0),
+    m_elapsedSamples(0)
 {
 }
 
-void AREnvelope::set_sample_rate(float rate)
+void ASREnvelope::set_sample_rate(float rate)
 {
     AudioFilter::set_sample_rate(rate);
     m_attack.set_sample_rate(rate);
     m_release.set_sample_rate(rate);
 }
 
-void AREnvelope::set_peak(float peak)
+void ASREnvelope::set_peak(float peak)
 {
     m_peak = peak;
     m_attack.set_begin_value(0.0f);
     m_attack.set_end_value(peak);
-    m_release.set_begin_value(peak);
+//     m_release.set_begin_value(peak);
+//     m_release.set_end_value(0.0f);
+}
+
+void ASREnvelope::set_sustain(float sustain)
+{
+    m_sustain = sustain;
+    m_release.set_begin_value(sustain);
     m_release.set_end_value(0.0f);
 }
 
-void AREnvelope::set_length_in_seconds(EnvelopeStage stage, float seconds)
+void ASREnvelope::set_length_in_seconds(EnvelopeStage stage, float seconds)
 {
     switch (stage)
     {
@@ -69,10 +80,13 @@ void AREnvelope::set_length_in_seconds(EnvelopeStage stage, float seconds)
         case kRelease:
             m_release.set_length_in_seconds(seconds);
             break;
+
+        default:
+            break;
     }
 }
 
-void AREnvelope::set_length_in_samples(EnvelopeStage stage, uint32_t samples)
+void ASREnvelope::set_length_in_samples(EnvelopeStage stage, uint32_t samples)
 {
     switch (stage)
     {
@@ -83,10 +97,13 @@ void AREnvelope::set_length_in_samples(EnvelopeStage stage, uint32_t samples)
         case kRelease:
             m_release.set_length_in_samples(samples);
             break;
+
+        default:
+            break;
     }
 }
 
-float AREnvelope::get_length_in_seconds(EnvelopeStage stage)
+float ASREnvelope::get_length_in_seconds(EnvelopeStage stage)
 {
     switch (stage)
     {
@@ -95,11 +112,14 @@ float AREnvelope::get_length_in_seconds(EnvelopeStage stage)
 
         case kRelease:
             return m_release.get_length_in_seconds();
+
+        default:
+            break;
     }
     return 0.0f;
 }
 
-uint32_t AREnvelope::get_length_in_samples(EnvelopeStage stage)
+uint32_t ASREnvelope::get_length_in_samples(EnvelopeStage stage)
 {
     switch (stage)
     {
@@ -108,11 +128,14 @@ uint32_t AREnvelope::get_length_in_samples(EnvelopeStage stage)
 
         case kRelease:
             return m_release.get_length_in_samples();
+
+        default:
+            break;
     }
     return 0;
 }
 
-void AREnvelope::set_curve_type(EnvelopeStage stage, AudioRamp::CurveType theType)
+void ASREnvelope::set_curve_type(EnvelopeStage stage, AudioRamp::CurveType theType)
 {
     switch (stage)
     {
@@ -123,59 +146,127 @@ void AREnvelope::set_curve_type(EnvelopeStage stage, AudioRamp::CurveType theTyp
         case kRelease:
             m_release.set_curve_type(theType);
             break;
+
+        default:
+            break;
     }
 }
 
-void AREnvelope::reset()
+void ASREnvelope::set_release_offset(uint32_t offset)
+{
+    m_releaseOffset = m_elapsedSamples + offset;
+}
+
+void ASREnvelope::reset()
 {
     set_peak(m_peak);
+    set_sustain(m_sustain);
     m_attack.reset();
     m_release.reset();
+    m_elapsedSamples = 0;
 }
 
-float AREnvelope::next()
+float ASREnvelope::next()
 {
-    if (m_attack.is_finished())
-    {
-        return m_release.next();
-    }
-    else
-    {
-        return m_attack.next();
-    }
+//     if (m_attack.is_finished())
+//     {
+//         return m_release.next();
+//     }
+//     else
+//     {
+//         return m_attack.next();
+//     }
+    float sample;
+    process(&sample, 1);
+    return sample;
 }
 
-bool AREnvelope::is_finished()
+bool ASREnvelope::is_finished()
 {
     return m_attack.is_finished() && m_release.is_finished();
 }
 
-void AREnvelope::process(float * samples, uint32_t count)
+void ASREnvelope::process(float * samples, uint32_t count)
 {
-    if (!m_attack.is_finished())
-    {
-        uint32_t attackCount = m_attack.get_remaining_samples();
-        if (attackCount > count)
-        {
-            attackCount = count;
-        }
-        m_attack.process(samples, attackCount);
-
-        if (attackCount < count)
-        {
-            m_release.process(samples + attackCount, count - attackCount);
-        }
-    }
-    else
-    {
-//         uint32_t releaseCount = m_release.get_remaining_samples();
-//         if (releaseCount > count)
+//     if (!m_attack.is_finished())
+//     {
+//         // Attack
+//         uint32_t attackCount = m_attack.get_remaining_samples();
+//         if (attackCount > count)
 //         {
-//             releaseCount = count;
+//             attackCount = count;
 //         }
-//         m_release.process(samples, releaseCount);
-        m_release.process(samples, count);
+//         m_attack.process(samples, attackCount);
+//
+//         // Sustain
+//         if (attackCount < count)
+//         {
+//             uint32_t sustainCount = count - attackCount;
+//             if (sustainCount + m_elapsedSamples > m_releaseOffset)
+//             {
+//                 sustainCount = m_releaseOffset - m_elapsedSamples;
+//             }
+//             arm_fill_f32(m_sustain, samples + attackCount, sustainCount);
+//
+//             // Release
+//             if (attackCount < count)
+//             {
+//                 m_release.process(samples + attackCount, count - attackCount);
+//             }
+//         }
+//     }
+//     else
+//     {
+// //         uint32_t releaseCount = m_release.get_remaining_samples();
+// //         if (releaseCount > count)
+// //         {
+// //             releaseCount = count;
+// //         }
+// //         m_release.process(samples, releaseCount);
+//         m_release.process(samples, count);
+//     }
+
+    // Attack.
+    uint32_t attackCount = m_attack.get_remaining_samples();
+    if (attackCount > count)
+    {
+        attackCount = count;
     }
+    if (attackCount)
+    {
+        m_attack.process(samples, attackCount);
+    }
+
+    // Sustain.
+    if (attackCount < count)
+    {
+        uint32_t sustainCount = 0;
+        if (m_enableSustain)
+        {
+            sustainCount = count - attackCount;
+            if (m_releaseOffset > 0)
+            {
+                if (attackCount + sustainCount + m_elapsedSamples > m_releaseOffset)
+                {
+                    sustainCount = m_releaseOffset - m_elapsedSamples - attackCount;
+                }
+            }
+            arm_fill_f32(m_sustain, samples + attackCount, sustainCount);
+        }
+
+        // Release.
+        uint32_t attackSustainCount = attackCount + sustainCount;
+        if (attackSustainCount < count)
+        {
+            uint32_t releaseCount = count - attackSustainCount;
+            if (releaseCount)
+            {
+                m_release.process(samples + attackSustainCount, releaseCount);
+            }
+        }
+    }
+
+    m_elapsedSamples += count;
 }
 
 //------------------------------------------------------------------------------

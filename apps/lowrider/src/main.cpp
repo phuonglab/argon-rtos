@@ -66,6 +66,9 @@ public:
 
     void set_freq(float freq) { m_sinFreq = freq; }
     void set_sequence(Sequencer * seq) { m_seq = seq; }
+    void enable_sustain(bool enable) { m_env.enable_sustain(enable); }
+    void set_attack(float seconds) { m_env.set_length_in_seconds(ASREnvelope::kAttack, seconds); }
+    void set_release(float seconds) { m_env.set_length_in_seconds(ASREnvelope::kRelease, seconds); }
     void init();
 
     virtual void process(float * samples, uint32_t count);
@@ -74,7 +77,7 @@ protected:
     float m_delta;
     float m_sinFreq; // 80 Hz
     float m_phase;
-    AREnvelope m_env;
+    ASREnvelope m_env;
     float m_previous;
     Sequencer * m_seq;
 };
@@ -132,16 +135,21 @@ void SineGenerator::init()
     m_delta = 2.0f * PI * (m_sinFreq / m_sampleRate);
 
     m_env.set_sample_rate(get_sample_rate());
-    m_env.set_curve_type(AREnvelope::kAttack, AudioRamp::kLinear);
-    m_env.set_curve_type(AREnvelope::kRelease, AudioRamp::kLinear);
-    m_env.set_length_in_seconds(AREnvelope::kAttack, 0.01f);
-    m_env.set_length_in_seconds(AREnvelope::kRelease, 1.0f);
+    m_env.set_curve_type(ASREnvelope::kAttack, AudioRamp::kLinear);
+    m_env.set_curve_type(ASREnvelope::kRelease, AudioRamp::kLinear);
+//     m_env.set_length_in_seconds(ASREnvelope::kAttack, 0.01f);
+//     m_env.set_length_in_seconds(ASREnvelope::kRelease, 1.0f);
 }
 
 void SineGenerator::process(float * samples, uint32_t count)
 {
     // Check for a trigger.
-    int triggerSample = m_seq->get_next_event(count);
+    Sequencer::Event triggerEvent = m_seq->get_next_event(count);
+    int32_t triggerSample = triggerEvent.m_timestamp;
+    if (triggerEvent.m_event == Sequencer::kNoteStopEvent)
+    {
+        m_env.set_release_offset(triggerSample);
+    }
     bool needsRestartOnZeroCrossing = false;
     float previous = m_previous;
     float * sample = samples;
@@ -244,16 +252,22 @@ void init_audio_out()
     g_sinGen.set_sample_rate(kSampleRate);
     g_sinGen.set_sequence(&g_kickSeq);
     g_sinGen.set_freq(80.0f);
+    g_sinGen.enable_sustain(false);
+    g_sinGen.set_attack(0.01f);
+    g_sinGen.set_release(0.6f);
     g_sinGen.init();
 
     g_bassSeq.set_sample_rate(kSampleRate);
     g_bassSeq.set_tempo(100.0f);
-    g_bassSeq.set_sequence("--x-----");
+    g_bassSeq.set_sequence("--s>>>p-");
     g_bassSeq.init();
 
     g_bassGen.set_sample_rate(kSampleRate);
     g_bassGen.set_sequence(&g_bassSeq);
     g_bassGen.set_freq(50.0f);
+    g_bassGen.enable_sustain(true);
+    g_bassGen.set_attack(0.2f);
+    g_bassGen.set_release(0.8f);
     g_bassGen.init();
 
     AudioBuffer mixBuf(&g_mixBuf[0], BUFFER_SIZE);

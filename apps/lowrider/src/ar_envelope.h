@@ -39,22 +39,25 @@
 /*!
  * @brief Attack-Release envelope generator.
  */
-class AREnvelope : public AudioFilter
+class ASREnvelope : public AudioFilter
 {
 public:
-    //! Options for the shape of the ramp.
+    //! Ramp segments of the envelope.
     enum EnvelopeStage
     {
         kAttack,
         kRelease
     };
 
-    AREnvelope();
-    virtual ~AREnvelope() {}
+    ASREnvelope();
+    virtual ~ASREnvelope() {}
 
-    void set_sample_rate(float rate);
+    virtual void set_sample_rate(float rate);
 
     void set_peak(float peak);
+    void set_sustain(float sustain);
+
+    void enable_sustain(bool enable) { m_enableSustain = enable; }
 
     void set_length_in_seconds(EnvelopeStage stage, float seconds);
     void set_length_in_samples(EnvelopeStage stage, uint32_t samples);
@@ -67,6 +70,10 @@ public:
     //! the slope itself.
     void set_curve_type(EnvelopeStage stage, AudioRamp::CurveType theType);
 
+    //! Sets the offset to the start of the release stage. Offset is relative to the next
+    //! call to process().
+    void set_release_offset(uint32_t offset);
+
     void reset();
     float next();
 
@@ -78,7 +85,10 @@ protected:
     AudioRamp m_attack;
     AudioRamp m_release;
     float m_peak;
-
+    float m_sustain;
+    bool m_enableSustain;
+    uint32_t m_releaseOffset;
+    uint32_t m_elapsedSamples;
 };
 
 #endif // _AR_ENVELOPE_H_

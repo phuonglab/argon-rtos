@@ -2003,7 +2003,7 @@
       <name>$PROJ_DIR$\..\..\..\src\CMSIS\DSP_Lib\Source\CommonTables\arm_common_tables.c</name>
     </file>
     <file>
-      <name>$PROJ_DIR$\..\..\..\src\CMSIS\DSP_Lib\Source\SupportFunctions\arm_float_to_q15.c</name>
+      <name>$PROJ_DIR$\..\..\..\src\CMSIS\DSP_Lib\Source\SupportFunctions\arm_fill_f32.c</name>
     </file>
     <file>
       <name>$PROJ_DIR$\..\..\..\src\CMSIS\DSP_Lib\Source\BasicMathFunctions\arm_mult_f32.c</name>
@@ -2013,9 +2013,6 @@
     </file>
     <file>
       <name>$PROJ_DIR$\..\..\..\src\CMSIS\DSP_Lib\Source\FastMathFunctions\arm_sin_f32.c</name>
-    </file>
-    <file>
-      <name>$PROJ_DIR$\..\..\..\src\CMSIS\DSP_Lib\Source\FastMathFunctions\arm_sin_q15.c</name>
     </file>
   </group>
   <group>
