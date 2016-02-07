@@ -55,7 +55,6 @@ public:
     virtual void set_sample_rate(float rate);
 
     void set_peak(float peak);
-    void set_sustain(float sustain);
 
     void enable_sustain(bool enable) { m_enableSustain = enable; }
 
@@ -74,7 +73,7 @@ public:
     //! call to process().
     void set_release_offset(uint32_t offset);
 
-    void reset();
+    void trigger();
     float next();
 
     bool is_finished();
@@ -85,10 +84,10 @@ protected:
     AudioRamp m_attack;
     AudioRamp m_release;
     float m_peak;
-    float m_sustain;
     bool m_enableSustain;
     uint32_t m_releaseOffset;
     uint32_t m_elapsedSamples;
+    bool m_isTriggered;
 };
 
 #endif // _AR_ENVELOPE_H_

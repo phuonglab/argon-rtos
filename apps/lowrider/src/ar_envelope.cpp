@@ -29,6 +29,7 @@
 
 #include "ar_envelope.h"
 #include "arm_math.h"
+#include "argon/argon.h"
 
 //------------------------------------------------------------------------------
 // Code
@@ -39,10 +40,10 @@ ASREnvelope::ASREnvelope()
     m_attack(),
     m_release(),
     m_peak(1.0f),
-    m_sustain(1.0f),
     m_enableSustain(false),
     m_releaseOffset(0),
-    m_elapsedSamples(0)
+    m_elapsedSamples(0),
+    m_isTriggered(false)
 {
 }
 
@@ -58,14 +59,7 @@ void ASREnvelope::set_peak(float peak)
     m_peak = peak;
     m_attack.set_begin_value(0.0f);
     m_attack.set_end_value(peak);
-//     m_release.set_begin_value(peak);
-//     m_release.set_end_value(0.0f);
-}
-
-void ASREnvelope::set_sustain(float sustain)
-{
-    m_sustain = sustain;
-    m_release.set_begin_value(sustain);
+    m_release.set_begin_value(peak);
     m_release.set_end_value(0.0f);
 }
 
@@ -157,13 +151,13 @@ void ASREnvelope::set_release_offset(uint32_t offset)
     m_releaseOffset = m_elapsedSamples + offset;
 }
 
-void ASREnvelope::reset()
+void ASREnvelope::trigger()
 {
     set_peak(m_peak);
-    set_sustain(m_sustain);
     m_attack.reset();
     m_release.reset();
     m_elapsedSamples = 0;
+    m_isTriggered = true;
 }
 
 float ASREnvelope::next()
@@ -226,6 +220,12 @@ void ASREnvelope::process(float * samples, uint32_t count)
 //         m_release.process(samples, count);
 //     }
 
+    if (!m_isTriggered)
+    {
+        arm_fill_f32(0.0f, samples, count);
+        return;
+    }
+
     // Attack.
     uint32_t attackCount = m_attack.get_remaining_samples();
     if (attackCount > count)
@@ -240,7 +240,7 @@ void ASREnvelope::process(float * samples, uint32_t count)
     // Sustain.
     if (attackCount < count)
     {
-        uint32_t sustainCount = 0;
+        int32_t sustainCount = 0;
         if (m_enableSustain)
         {
             sustainCount = count - attackCount;
@@ -249,9 +249,21 @@ void ASREnvelope::process(float * samples, uint32_t count)
                 if (attackCount + sustainCount + m_elapsedSamples > m_releaseOffset)
                 {
                     sustainCount = m_releaseOffset - m_elapsedSamples - attackCount;
+
+                    if (sustainCount < 0)
+                    {
+                        sustainCount = 0;
+                    }
                 }
             }
-            arm_fill_f32(m_sustain, samples + attackCount, sustainCount);
+            if (sustainCount > 1000)
+            {
+                Ar::_halt();
+            }
+            if (sustainCount > 0)
+            {
+                arm_fill_f32(m_peak, samples + attackCount, sustainCount);
+            }
         }
 
         // Release.
