@@ -56,7 +56,7 @@ public:
 
 protected:
     enum {
-        kMaxInputs = 2
+        kMaxInputs = 4
     };
 
     AudioBuffer m_buffer;

@@ -107,10 +107,12 @@ float g_currRadians = 0.0f;
 
 AudioOutput g_audioOut;
 AudioOutputConverter g_audioOutConverter;
-SineGenerator g_sinGen;
-SineGenerator g_bassGen;
+SineGenerator g_kickGen;
 Sequencer g_kickSeq;
+SineGenerator g_bassGen;
 Sequencer g_bassSeq;
+// SineGenerator g_tickGen;
+// Sequencer g_tickSeq;
 AudioMixer g_mixer;
 i2c_master_handle_t g_i2cHandle;
 fxos_handle_t g_fxos;
@@ -248,35 +250,50 @@ void init_audio_out()
 
     g_kickSeq.set_sample_rate(kSampleRate);
     g_kickSeq.set_tempo(100.0f);
-    g_kickSeq.set_sequence("x---x---x---x-x-x---x---x---x---xx--x--x--xxx-x-");
+//     g_kickSeq.set_sequence("x---x---x---x-x-x---x---x---x---xx--x--x--xxx-x-");
+    g_kickSeq.set_sequence("x---x-x----xx---");
     g_kickSeq.init();
 
-    g_sinGen.set_sample_rate(kSampleRate);
-    g_sinGen.set_sequence(&g_kickSeq);
-    g_sinGen.set_freq(80.0f);
-    g_sinGen.enable_sustain(false);
-    g_sinGen.init();
-    g_sinGen.set_attack(0.01f);
-    g_sinGen.set_release(0.6f);
+    g_kickGen.set_sample_rate(kSampleRate);
+    g_kickGen.set_sequence(&g_kickSeq);
+    g_kickGen.set_freq(50.0f);
+    g_kickGen.enable_sustain(false);
+    g_kickGen.init();
+    g_kickGen.set_attack(0.01f);
+    g_kickGen.set_release(0.6f);
 
     g_bassSeq.set_sample_rate(kSampleRate);
     g_bassSeq.set_tempo(100.0f);
-    g_bassSeq.set_sequence("------s>>>p-----");
+    g_bassSeq.set_sequence("--s>>>p-----s>>>>>>p----");
     g_bassSeq.init();
 
     g_bassGen.set_sample_rate(kSampleRate);
     g_bassGen.set_sequence(&g_bassSeq);
-    g_bassGen.set_freq(50.0f);
+    g_bassGen.set_freq(40.0f);
     g_bassGen.enable_sustain(true);
     g_bassGen.init();
     g_bassGen.set_attack(0.3f);
-    g_bassGen.set_release(1.6f);
+    g_bassGen.set_release(1.0f);
+
+//     g_tickSeq.set_sample_rate(kSampleRate);
+//     g_tickSeq.set_tempo(100.0f);
+//     g_tickSeq.set_sequence("----x-----x-");
+//     g_tickSeq.init();
+//
+//     g_tickGen.set_sample_rate(kSampleRate);
+//     g_tickGen.set_sequence(&g_tickSeq);
+//     g_tickGen.set_freq(4000.0f);
+//     g_tickGen.enable_sustain(false);
+//     g_tickGen.init();
+//     g_tickGen.set_attack(0.04f);
+//     g_tickGen.set_release(0.3f);
 
     AudioBuffer mixBuf(&g_mixBuf[0], BUFFER_SIZE);
     g_mixer.set_buffer(mixBuf);
     g_mixer.set_input_count(2);
-    g_mixer.set_input(0, &g_sinGen, 0.5f);
+    g_mixer.set_input(0, &g_kickGen, 0.5f);
     g_mixer.set_input(1, &g_bassGen, 0.5f);
+//     g_mixer.set_input(2, &g_tickGen, 0.3f);
 }
 
 void init_board()
