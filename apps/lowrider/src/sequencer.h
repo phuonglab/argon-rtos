@@ -79,6 +79,8 @@ public:
     void set_tempo(float tempo) { m_tempo = tempo; }
     void set_sequence(const char * seq) { m_sequence = seq; }
 
+    uint32_t get_samples_per_beat() { return m_samplesPerBeat; }
+
     void init();
 
     Event get_next_event(uint32_t count);

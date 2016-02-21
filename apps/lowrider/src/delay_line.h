@@ -26,10 +26,10 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#if !defined(_AUDIO_FILTER_H_)
-#define _AUDIO_FILTER_H_
+#if !defined(_DELAY_LINE_H_)
+#define _DELAY_LINE_H_
 
-#include "audio_buffer.h"
+#include "audio_filter.h"
 #include <stdint.h>
 
 //------------------------------------------------------------------------------
@@ -37,66 +37,55 @@
 //------------------------------------------------------------------------------
 
 /*!
- * @brief Audio filter.
+ * @brief Audio delay line.
  */
-class AudioFilter
+class DelayLine : public AudioFilter
 {
 public:
-    AudioFilter();
-    virtual ~AudioFilter() {}
 
-    void set_sample_rate(float rate) { m_sampleRate = rate; }
-    float get_sample_rate() const { return m_sampleRate; }
+	//! Default constructor. You must set the maximum delay time in either
+	//! samples or seconds before using the delay. Any calls to \c Tick()
+	//! before doing this will simply return 0.0.
+	DelayLine();
 
-    void set_input(AudioFilter * input) { m_input = input; }
+	//! This constructor is equivalent to setting the maximum delay time
+	//! using \c SetMaximum_delaySamples().
+	DelayLine(unsigned delaySamples);
 
-    void process(AudioBuffer & buffer)
-    {
-        process(buffer.get_buffer(), buffer.get_count());
-    }
+	//! Disposes of the delay line.
+	virtual ~DelayLine();
 
-    virtual void process(float * samples, uint32_t count);
+	void set_maximum_delay_samples(unsigned delaySamples);
+	void set_maximum_delay_seconds(float delaySeconds);
+
+	void set_delay_samples(unsigned delaySamples);
+	void set_delay_seconds(float delaySeconds);
+
+	void set_feedback(float feedback) { m_feedback = feedback; }
+
+	void set_dry_mix(float mix) { m_dryMix = mix; }
+	void set_wet_mix(float mix) { m_wetMix = mix; }
+
+	void reset();
+
+	//! Puts a sample into the delay line and return the delayed output.
+	float tick(float inSample);
 
 protected:
-    float m_sampleRate;
-    AudioFilter * m_input;
+	float * m_delayLine;
+	unsigned m_maxDelaySamples;
+	unsigned m_delaySamples;
+	unsigned m_readHead;
+	unsigned m_writeHead;
+	float m_feedback;
+	float m_dryMix;
+	float m_wetMix;
 
     virtual void _process(float * samples, uint32_t count);
 
 };
 
-
-
-// SineGenerator singen;
-// Lowpass lpf;
-// Delay dly;
-// OutputConverter cvt;
-//
-// lpf.connect_source(singen);
-// dly.connect_source(lpf);
-// cvt.connect_source(dly);
-// out.set_source(cvt);
-//
-// void process(buf) {
-//     if (has_source) {
-//         source.process(buf);
-//     }
-//     this.internal_process(buf);
-// }
-//
-//
-// AudioGraph graph;
-// graph.add_node(singen);
-// graph.add_node(lpf, singen);
-// graph.add_node(dly, lpf);
-//
-// cvt.set_source(graph);
-// out.set_source(cvt);
-
-
-
-
-#endif // _AUDIO_FILTER_H_
+#endif // _DELAY_LINE_H_
 //------------------------------------------------------------------------------
 // EOF
 //------------------------------------------------------------------------------

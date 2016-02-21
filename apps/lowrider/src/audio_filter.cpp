@@ -26,77 +26,35 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#if !defined(_AUDIO_FILTER_H_)
-#define _AUDIO_FILTER_H_
 
-#include "audio_buffer.h"
-#include <stdint.h>
+#include "audio_filter.h"
+#include "arm_math.h"
+#include <string.h>
+#include <assert.h>
 
 //------------------------------------------------------------------------------
-// Definitions
+// Code
 //------------------------------------------------------------------------------
 
-/*!
- * @brief Audio filter.
- */
-class AudioFilter
+AudioFilter::AudioFilter()
+:   m_sampleRate(0),
+    m_input(NULL)
 {
-public:
-    AudioFilter();
-    virtual ~AudioFilter() {}
+}
 
-    void set_sample_rate(float rate) { m_sampleRate = rate; }
-    float get_sample_rate() const { return m_sampleRate; }
-
-    void set_input(AudioFilter * input) { m_input = input; }
-
-    void process(AudioBuffer & buffer)
+void AudioFilter::process(float * samples, uint32_t count)
+{
+    if (m_input)
     {
-        process(buffer.get_buffer(), buffer.get_count());
+        m_input->process(samples, count);
     }
+    _process(samples, count);
+}
 
-    virtual void process(float * samples, uint32_t count);
+void AudioFilter::_process(float * samples, uint32_t count)
+{
+}
 
-protected:
-    float m_sampleRate;
-    AudioFilter * m_input;
-
-    virtual void _process(float * samples, uint32_t count);
-
-};
-
-
-
-// SineGenerator singen;
-// Lowpass lpf;
-// Delay dly;
-// OutputConverter cvt;
-//
-// lpf.connect_source(singen);
-// dly.connect_source(lpf);
-// cvt.connect_source(dly);
-// out.set_source(cvt);
-//
-// void process(buf) {
-//     if (has_source) {
-//         source.process(buf);
-//     }
-//     this.internal_process(buf);
-// }
-//
-//
-// AudioGraph graph;
-// graph.add_node(singen);
-// graph.add_node(lpf, singen);
-// graph.add_node(dly, lpf);
-//
-// cvt.set_source(graph);
-// out.set_source(cvt);
-
-
-
-
-#endif // _AUDIO_FILTER_H_
 //------------------------------------------------------------------------------
 // EOF
 //------------------------------------------------------------------------------

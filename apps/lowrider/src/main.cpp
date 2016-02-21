@@ -35,6 +35,8 @@
 #include "asr_envelope.h"
 #include "sequencer.h"
 #include "audio_mixer.h"
+#include "delay_line.h"
+#include "rbj_filter.h"
 #include "fsl_port.h"
 #include "fsl_gpio.h"
 #include "fsl_fxos.h"
@@ -82,6 +84,37 @@ protected:
     Sequencer * m_seq;
 };
 
+class SquareGenerator : public AudioFilter
+{
+public:
+    SquareGenerator()
+    :   m_freq(0),
+        m_halfPhaseWidth(0),
+        m_phase(0),
+        m_env(),
+        m_previous(0),
+        m_seq(NULL)
+    {
+    }
+
+    void set_freq(float freq) { m_freq = freq; }
+    void set_sequence(Sequencer * seq) { m_seq = seq; }
+    void enable_sustain(bool enable) { m_env.enable_sustain(enable); }
+    void set_attack(float seconds) { m_env.set_length_in_seconds(ASREnvelope::kAttack, seconds); }
+    void set_release(float seconds) { m_env.set_length_in_seconds(ASREnvelope::kRelease, seconds); }
+    void init();
+
+    virtual void process(float * samples, uint32_t count);
+
+protected:
+    float m_freq; // 80 Hz
+    float m_halfPhaseWidth;
+    float m_phase;
+    ASREnvelope m_env;
+    float m_previous;
+    Sequencer * m_seq;
+};
+
 //------------------------------------------------------------------------------
 // Prototypes
 //------------------------------------------------------------------------------
@@ -114,6 +147,8 @@ Sequencer g_bassSeq;
 // SineGenerator g_tickGen;
 // Sequencer g_tickSeq;
 AudioMixer g_mixer;
+RBJFilter g_filter;
+DelayLine g_delay;
 i2c_master_handle_t g_i2cHandle;
 fxos_handle_t g_fxos;
 
@@ -181,6 +216,69 @@ void SineGenerator::process(float * samples, uint32_t count)
 
         m_phase += m_delta;
         if (m_phase >= 2.0f * PI)
+        {
+            m_phase = 0.0f;
+        }
+
+        previous = v;
+    }
+
+    m_previous = previous;
+}
+
+void SquareGenerator::init()
+{
+    m_halfPhaseWidth = m_sampleRate / m_freq / 2.0f;
+
+    m_env.set_sample_rate(get_sample_rate());
+    m_env.set_curve_type(ASREnvelope::kAttack, AudioRamp::kLinear);
+    m_env.set_curve_type(ASREnvelope::kRelease, AudioRamp::kLinear);
+    m_env.set_peak(1.0f);
+//     m_env.set_length_in_seconds(ASREnvelope::kAttack, 0.01f);
+//     m_env.set_length_in_seconds(ASREnvelope::kRelease, 1.0f);
+}
+
+void SquareGenerator::process(float * samples, uint32_t count)
+{
+    // Check for a trigger.
+    Sequencer::Event triggerEvent = m_seq->get_next_event(count);
+    int32_t triggerSample = triggerEvent.m_timestamp;
+    if (triggerEvent.m_event == Sequencer::kNoteStopEvent)
+    {
+        m_env.set_release_offset(triggerSample);
+        triggerSample = -1;
+    }
+    bool needsRestartOnZeroCrossing = false;
+    float previous = m_previous;
+    float * sample = samples;
+    int i;
+    for (i = 0; i < count; ++i)
+    {
+        // Detect trigger point.
+        if (triggerSample == i)
+        {
+            needsRestartOnZeroCrossing = true;
+        }
+
+        float f = 1.0f;
+        if (m_phase > m_halfPhaseWidth)
+        {
+            f = -1.0f;
+        }
+        float v = f * m_env.next();
+        *sample++ = v;
+
+        // After triggered, restart  on a zero crossing to prevent popping.
+        bool zeroCrossing = ((previous >= 0.0f && v <= 0.0f) || (previous <= 0.0f && v >= 0.0f));
+        if (needsRestartOnZeroCrossing && zeroCrossing)
+        {
+            m_env.trigger();
+            m_phase = 0.0f;
+            needsRestartOnZeroCrossing = false;
+        }
+
+        m_phase += 1.0f;
+        if (m_phase >= m_halfPhaseWidth * 2.0f)
         {
             m_phase = 0.0f;
         }
@@ -288,10 +386,24 @@ void init_audio_out()
 //     g_tickGen.set_attack(0.04f);
 //     g_tickGen.set_release(0.3f);
 
+    g_filter.set_sample_rate(kSampleRate);
+    g_filter.set_frequency(120.0f);
+    g_filter.set_q(0.4f);
+    g_filter.recompute_coefficients();
+    g_filter.set_input(&g_bassGen);
+
+    g_delay.set_sample_rate(kSampleRate);
+    g_delay.set_maximum_delay_seconds(0.4f);
+    g_delay.set_delay_samples(g_kickSeq.get_samples_per_beat());
+    g_delay.set_feedback(0.5f);
+    g_delay.set_wet_mix(0.7f);
+    g_delay.set_dry_mix(0.9f);
+    g_delay.set_input(&g_kickGen);
+
     AudioBuffer mixBuf(&g_mixBuf[0], BUFFER_SIZE);
     g_mixer.set_buffer(mixBuf);
     g_mixer.set_input_count(2);
-    g_mixer.set_input(0, &g_kickGen, 0.5f);
+    g_mixer.set_input(0, &g_delay, 0.5f);
     g_mixer.set_input(1, &g_bassGen, 0.5f);
 //     g_mixer.set_input(2, &g_tickGen, 0.3f);
 }

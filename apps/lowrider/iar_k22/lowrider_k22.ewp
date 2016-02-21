@@ -704,7 +704,7 @@
         </option>
         <option>
           <name>IlinkConfigDefines</name>
-          <state>__heap_size__=8192</state>
+          <state>__heap_size__=65536</state>
           <state>__stack_size__=4096</state>
         </option>
         <option>
@@ -2012,6 +2012,9 @@
       <name>$PROJ_DIR$\..\..\..\src\CMSIS\DSP_Lib\Source\BasicMathFunctions\arm_scale_f32.c</name>
     </file>
     <file>
+      <name>$PROJ_DIR$\..\..\..\src\CMSIS\DSP_Lib\Source\ControllerFunctions\arm_sin_cos_f32.c</name>
+    </file>
+    <file>
       <name>$PROJ_DIR$\..\..\..\src\CMSIS\DSP_Lib\Source\FastMathFunctions\arm_sin_f32.c</name>
     </file>
   </group>
@@ -2099,6 +2102,9 @@
       <name>$PROJ_DIR$\..\src\asr_envelope.h</name>
     </file>
     <file>
+      <name>$PROJ_DIR$\..\src\audio_filter.cpp</name>
+    </file>
+    <file>
       <name>$PROJ_DIR$\..\src\audio_filter.h</name>
     </file>
     <file>
@@ -2126,7 +2132,19 @@
       <name>$PROJ_DIR$\..\src\audio_ramp.h</name>
     </file>
     <file>
+      <name>$PROJ_DIR$\..\src\delay_line.cpp</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\src\delay_line.h</name>
+    </file>
+    <file>
       <name>$PROJ_DIR$\..\src\main.cpp</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\src\rbj_filter.cpp</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\src\rbj_filter.h</name>
     </file>
     <file>
       <name>$PROJ_DIR$\..\src\sequencer.cpp</name>
