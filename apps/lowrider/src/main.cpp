@@ -40,6 +40,7 @@
 #include "fsl_port.h"
 #include "fsl_gpio.h"
 #include "fsl_fxos.h"
+#include "ff.h"
 #include "arm_math.h"
 #include <stdio.h>
 #include <math.h>
@@ -52,6 +53,12 @@
 #define BUFFER_SIZE (256)
 #define CHANNEL_NUM (2)
 #define BUFFER_NUM (2)
+
+template <typename T>
+inline T abs(T a)
+{
+    return (a > 0) ? a : -a;
+}
 
 class SineGenerator : public AudioFilter
 {
@@ -135,8 +142,6 @@ float g_mixBuf[BUFFER_SIZE];
 int16_t g_outBuf[BUFFER_NUM][BUFFER_SIZE * CHANNEL_NUM];
 
 const float kSampleRate = 32000.0f; // 32kHz
-float g_sinFreq = 80.0f; // 80 Hz
-float g_currRadians = 0.0f;
 
 AudioOutput g_audioOut;
 AudioOutputConverter g_audioOutConverter;
@@ -151,6 +156,7 @@ RBJFilter g_filter;
 DelayLine g_delay;
 i2c_master_handle_t g_i2cHandle;
 fxos_handle_t g_fxos;
+FATFS g_fs;
 
 Ar::ThreadWithStack<512> g_accelThread("accel", accel_thread, 0, 120, kArSuspendThread);
 
@@ -160,8 +166,6 @@ Ar::ThreadWithStack<512> g_accelThread("accel", accel_thread, 0, 120, kArSuspend
 
 void my_timer_fn(Ar::Timer * t, void * arg)
 {
-//     printf("x\n");
-
     GPIO_TogglePinsOutput(GPIOA, (1 << 1)|(1 << 2));
     GPIO_TogglePinsOutput(GPIOD, (1 << 5));
 }
@@ -175,8 +179,6 @@ void SineGenerator::init()
     m_env.set_curve_type(ASREnvelope::kAttack, AudioRamp::kLinear);
     m_env.set_curve_type(ASREnvelope::kRelease, AudioRamp::kLinear);
     m_env.set_peak(1.0f);
-//     m_env.set_length_in_seconds(ASREnvelope::kAttack, 0.01f);
-//     m_env.set_length_in_seconds(ASREnvelope::kRelease, 1.0f);
 }
 
 void SineGenerator::process(float * samples, uint32_t count)
@@ -205,7 +207,7 @@ void SineGenerator::process(float * samples, uint32_t count)
         float v = f * m_env.next();
         *sample++ = v;
 
-        // After triggered, restart  on a zero crossing to prevent popping.
+        // After triggered, restart on a zero crossing to prevent popping.
         bool zeroCrossing = ((previous >= 0.0f && v <= 0.0f) || (previous <= 0.0f && v >= 0.0f));
         if (needsRestartOnZeroCrossing && zeroCrossing)
         {
@@ -234,8 +236,6 @@ void SquareGenerator::init()
     m_env.set_curve_type(ASREnvelope::kAttack, AudioRamp::kLinear);
     m_env.set_curve_type(ASREnvelope::kRelease, AudioRamp::kLinear);
     m_env.set_peak(1.0f);
-//     m_env.set_length_in_seconds(ASREnvelope::kAttack, 0.01f);
-//     m_env.set_length_in_seconds(ASREnvelope::kRelease, 1.0f);
 }
 
 void SquareGenerator::process(float * samples, uint32_t count)
@@ -268,7 +268,7 @@ void SquareGenerator::process(float * samples, uint32_t count)
         float v = f * m_env.next();
         *sample++ = v;
 
-        // After triggered, restart  on a zero crossing to prevent popping.
+        // After triggered, restart on a zero crossing to prevent popping.
         bool zeroCrossing = ((previous >= 0.0f && v <= 0.0f) || (previous <= 0.0f && v >= 0.0f));
         if (needsRestartOnZeroCrossing && zeroCrossing)
         {
@@ -289,6 +289,30 @@ void SquareGenerator::process(float * samples, uint32_t count)
     m_previous = previous;
 }
 
+// template <typename T, int N>
+// class RingBuffer
+// {
+// public:
+//     RingBuffer()
+//     :   m_head(0),
+//         m_tail(0),
+//         m_count(0)
+//     {
+//         memset(m_buffer, 0, sizeof(m_buffer));
+//     }
+//
+//     void insert(T value)
+//     {
+//
+//     }
+//
+// protected:
+//     T m_buffer[N];
+//     uint32_t m_head;
+//     uint32_t m_tail;
+//     uint32_t m_count;
+// };
+
 void accel_thread(void * arg)
 {
     memset(&g_fxos, 0, sizeof(g_fxos));
@@ -296,6 +320,11 @@ void accel_thread(void * arg)
     g_fxos.i2cHandle = &g_i2cHandle;
     g_fxos.xfer.slaveAddress = 0x1c;
     FXOS_Init(&g_fxos);
+
+    const int kHistoryCount = 50;
+    int16_t history[kHistoryCount];
+    uint32_t head = 0;
+    uint32_t count = 0;
 
     while (1)
     {
@@ -306,6 +335,35 @@ void accel_thread(void * arg)
 //             printf("acc[x=%6d y=%6d z=%6d] mag[x=%6d y=%6d z=%6d]\r\n",
 //                    data.accelX, data.accelY, data.accelZ,
 //                    data.magX, data.magY, data.magZ);
+
+            // Get maximum accel in positive or negative.
+            int16_t maxAccel = MAX(data.accelX, MAX(data.accelY, data.accelZ));
+            int16_t minAccel = MIN(data.accelX, MIN(data.accelY, data.accelZ));
+            if (abs(minAccel) > abs(maxAccel))
+            {
+                maxAccel = minAccel;
+            }
+
+            history[head] = maxAccel;
+            head = (head + 1) % kHistoryCount;
+            if (count < kHistoryCount)
+            {
+                ++count;
+            }
+
+            uint32_t sum = 0;
+            uint32_t average;
+            uint32_t i = head;
+            uint32_t j = 0;
+            for (; j < count; ++j)
+            {
+                sum += history[i];
+                i = (i + 1) % kHistoryCount;
+            }
+            average = sum / kHistoryCount;
+
+            float feedback = float(average) / 4096.0;
+            g_delay.set_feedback(feedback);
         }
 
         Ar::Thread::sleep(20);
@@ -396,8 +454,8 @@ void init_audio_out()
     g_delay.set_maximum_delay_seconds(0.4f);
     g_delay.set_delay_samples(g_kickSeq.get_samples_per_beat());
     g_delay.set_feedback(0.5f);
-    g_delay.set_wet_mix(0.7f);
-    g_delay.set_dry_mix(0.9f);
+    g_delay.set_wet_mix(0.5f);
+    g_delay.set_dry_mix(0.8f);
     g_delay.set_input(&g_kickGen);
 
     AudioBuffer mixBuf(&g_mixBuf[0], BUFFER_SIZE);
@@ -406,6 +464,11 @@ void init_audio_out()
     g_mixer.set_input(0, &g_delay, 0.5f);
     g_mixer.set_input(1, &g_bassGen, 0.5f);
 //     g_mixer.set_input(2, &g_tickGen, 0.3f);
+}
+
+void init_fs()
+{
+    f_mount(&g_fs, "", 0);
 }
 
 void init_board()
@@ -445,6 +508,24 @@ void init_board()
     GPIO_PinInit(GPIOA, 1, &gpioOut);
     GPIO_PinInit(GPIOA, 2, &gpioOut);
     GPIO_PinInit(GPIOD, 5, &gpioOut);
+
+    // SPI0 pins for SD card
+    // PTC4 = SPI0_PCS0
+    // PTD1 = SPI0_SCK
+    // PTD2 = SPI0_SOUT
+    // PTD3 = SPI0_SIN
+    // PTB16 = SD_CARD_DETECT
+    PORT_SetPinMux(PORTC, 4, kPORT_MuxAlt2);
+    PORT_SetPinMux(PORTD, 1, kPORT_MuxAlt2);
+    PORT_SetPinMux(PORTD, 2, kPORT_MuxAlt2);
+    PORT_SetPinMux(PORTD, 3, kPORT_MuxAlt2);
+    PORT_SetPinMux(PORTB, 16, kPORT_MuxAsGpio);
+
+    const gpio_pin_config_t gpioIn = {
+        .pinDirection = kGPIO_DigitalInput,
+        .outputLogic = 0,
+    };
+    GPIO_PinInit(GPIOB, 16, &gpioIn);
 }
 
 int main(void)
@@ -452,6 +533,7 @@ int main(void)
     printf("Hello...\r\n");
 
     init_board();
+    init_fs();
     init_audio_out();
 
     g_myTimer.start();

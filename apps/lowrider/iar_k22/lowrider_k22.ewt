@@ -2179,7 +2179,40 @@
     </file>
   </group>
   <group>
+    <name>fatfs</name>
+    <file>
+      <name>$PROJ_DIR$\..\..\..\src\fatfs\src\argon_syscall.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\..\src\fatfs\src\diskio.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\..\src\fatfs\src\diskio.h</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\..\src\fatfs\src\ff.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\..\src\fatfs\src\ff.h</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\..\src\fatfs\src\ffconf_template.h</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\..\src\fatfs\src\fsl_sdspi_disk\fsl_sdspi_disk.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\..\src\fatfs\src\fsl_sdspi_disk\fsl_sdspi_disk.h</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\..\src\fatfs\src\integer.h</name>
+    </file>
+  </group>
+  <group>
     <name>ksdk</name>
+    <file>
+      <name>$PROJ_DIR$\..\..\..\src\ksdk\fsl_card.h</name>
+    </file>
     <file>
       <name>$PROJ_DIR$\..\..\..\src\ksdk\fsl_common.c</name>
     </file>
@@ -2191,6 +2224,12 @@
     </file>
     <file>
       <name>$PROJ_DIR$\..\..\..\src\ksdk\fsl_dmamux.h</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\..\src\ksdk\fsl_dspi.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\..\src\ksdk\fsl_dspi.h</name>
     </file>
     <file>
       <name>$PROJ_DIR$\..\..\..\src\ksdk\fsl_edma.c</name>
@@ -2232,6 +2271,12 @@
       <name>$PROJ_DIR$\..\..\..\src\ksdk\fsl_sai_edma.h</name>
     </file>
     <file>
+      <name>$PROJ_DIR$\..\..\..\src\ksdk\fsl_sdspi.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\..\src\ksdk\fsl_sdspi.h</name>
+    </file>
+    <file>
       <name>$PROJ_DIR$\..\..\..\src\ksdk\fsl_sgtl5000.c</name>
     </file>
     <file>
@@ -2242,6 +2287,9 @@
     </file>
     <file>
       <name>$PROJ_DIR$\..\..\..\src\ksdk\fsl_sim.h</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\..\src\ksdk\fsl_specification.h</name>
     </file>
     <file>
       <name>$PROJ_DIR$\..\..\..\src\ksdk\fsl_uart.c</name>
