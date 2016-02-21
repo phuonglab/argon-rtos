@@ -250,6 +250,10 @@ typedef struct _ar_thread {
     ar_status_t m_unblockStatus;       //!< Status code to return from a blocking function upon unblocking.
     void * m_channelData;       //!< Receive or send data pointer for blocked channel.
     ar_runloop_t * m_runLoop;   //!< Run loop associated with this thread.
+    uint8_t m_percentCpu;
+    uint32_t m_lastSwitchIn;   //!< Tick count of last context switch.
+    uint32_t m_lastSwitchOut;   //!< Tick count of last context switch.
+    uint32_t m_loadAccumulator;
 
     // Internal utility methods.
 #if defined(__cplusplus)

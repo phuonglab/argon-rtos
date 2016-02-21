@@ -92,6 +92,7 @@ typedef struct _ar_kernel {
     volatile uint32_t tickCount;    //!< Current tick count.
     int32_t missedTickCount;       //!< Number of ticks that occurred while the kernel was locked.
     uint32_t nextWakeup;            //!< Time of the next wakeup event.
+    uint32_t lastLoadStart;
     volatile unsigned systemLoad;   //!< Percent of system load from 0-100. The volatile is necessary so that the IAR optimizer doesn't remove the entire load calculation loop of the idle_entry() function.
     ar_thread_t idleThread;         //!< The lowest priority thread in the system. Executes only when no other threads are ready.
 #if AR_GLOBAL_OBJECT_LISTS

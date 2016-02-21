@@ -214,6 +214,7 @@ void ar_kernel_run(void)
     // Init some misc fields.
     g_ar.needsReschedule = false;
     g_ar.nextWakeup = 0;
+    g_ar.lastLoadStart = 0;
     g_ar.deferredActions.m_count = 0;
 
     // Init list predicates.
@@ -472,6 +473,32 @@ void ar_kernel_scheduler()
     // Find the next ready thread using a round-robin search algorithm.
     ar_list_node_t * start;
 
+    uint32_t w = g_ar.tickCount - g_ar.lastLoadStart;
+    if (w > 100)
+    {
+        g_ar.lastLoadStart = g_ar.tickCount;
+        printf("last load start = %d\n", g_ar.lastLoadStart);
+    }
+    if (g_ar.currentThread)
+    {
+        g_ar.currentThread->m_lastSwitchOut = g_ar.tickCount;
+        printf("thread %s last out = %d\n", g_ar.currentThread->m_name, g_ar.currentThread->m_lastSwitchOut);
+
+//         uint32_t a = currentThread->m_lastSwitchIn;
+
+        // Add in the time the current thread just ran.
+        if (g_ar.currentThread->m_lastSwitchIn < g_ar.lastLoadStart)
+        {
+            g_ar.currentThread->m_loadAccumulator = g_ar.tickCount - g_ar.lastLoadStart;
+        }
+        else
+        {
+            uint32_t d = g_ar.tickCount - g_ar.currentThread->m_lastSwitchIn;
+            g_ar.currentThread->m_loadAccumulator += d;
+        }
+        printf("thread %s load = %d\n", g_ar.currentThread->m_name, g_ar.currentThread->m_loadAccumulator);
+    }
+
     // Handle both the first time the scheduler runs and g_ar.currentThread is NULL, and the case where
     // the current thread was suspended. For both cases we want to start searching at the beginning
     // of the ready list. Otherwise start searching at the current thread.
@@ -513,6 +540,13 @@ void ar_kernel_scheduler()
         highest->m_state = kArThreadRunning;
         g_ar.currentThread = highest;
     }
+
+    if (g_ar.currentThread->m_lastSwitchOut < g_ar.lastLoadStart)
+    {
+        g_ar.currentThread->m_loadAccumulator = 0;
+    }
+    g_ar.currentThread->m_lastSwitchIn = g_ar.tickCount;
+    printf("thread %s last in = %d\n", g_ar.currentThread->m_name, g_ar.currentThread->m_lastSwitchIn);
 
     // Check for stack overflow on the selected thread.
     assert(g_ar.currentThread);
