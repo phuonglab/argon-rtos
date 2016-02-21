@@ -32,7 +32,7 @@
 #include "audio_output_converter.h"
 #include "audio_filter.h"
 #include "audio_ramp.h"
-#include "ar_envelope.h"
+#include "asr_envelope.h"
 #include "sequencer.h"
 #include "audio_mixer.h"
 #include "fsl_port.h"
