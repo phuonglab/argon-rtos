@@ -36,6 +36,7 @@
 #define _AR_PORT_H_
 
 #include "fsl_device_registers.h"
+#include <stdbool.h>
 
 //! @addtogroup ar_port
 //! @{
@@ -60,6 +61,11 @@ typedef struct _ar_kernel_port_data {
     bool hasExtendedFrame;  //!< Used solely to pass info back to asm PendSV handler code.
 } ar_kernel_port_data_t;
 
+enum
+{
+    kSchedulerQuanta_ms = 10
+};
+
 //! @}
 
 #if defined(__cplusplus)
@@ -68,11 +74,6 @@ namespace Ar {
 
 //! @addtogroup ar_port
 //! @{
-
-enum
-{
-    kSchedulerQuanta_ms = 10
-};
 
 /*!
  * @brief Context for a thread saved on the stack.
@@ -136,12 +137,16 @@ inline bool ar_port_get_irq_state(void)
     return __get_IPSR() != 0;
 }
 
+#if __cplusplus
 extern "C" inline uint32_t ar_get_milliseconds_per_tick();
+#else
+static inline uint32_t ar_get_milliseconds_per_tick();
+#endif
 
 //! @brief Returns the number of milliseconds per tick.
 inline uint32_t ar_get_milliseconds_per_tick()
 {
-    return Ar::kSchedulerQuanta_ms;
+    return kSchedulerQuanta_ms;
 }
 
 #endif // _AR_PORT_H_
