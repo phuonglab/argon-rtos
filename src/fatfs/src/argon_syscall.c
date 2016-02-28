@@ -9,7 +9,7 @@
 
 #if _FS_REENTRANT
 /*------------------------------------------------------------------------*/
-/* Create a Synchronization Object
+/* Create a Synchronization Object                                        */
 /*------------------------------------------------------------------------*/
 /* This function is called in f_mount() function to create a new
 /  synchronization object, such as semaphore and mutex. When a 0 is returned,
@@ -23,7 +23,7 @@ int ff_cre_syncobj (	/* !=0:Function succeeded, ==0:Could not create due to any 
 	int ret;
 	ar_semaphore_t * sem = (ar_semaphore_t *)malloc(sizeof(ar_semaphore_t));
 	*sobj = sem;
-	ar_semaphore_create(sem, NULL, 0);
+	ar_semaphore_create(sem, NULL, 1);
 	ret = (int)(*sobj != NULL);
 	return ret;
 }

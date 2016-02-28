@@ -2199,13 +2199,16 @@
       <name>$PROJ_DIR$\..\..\..\src\fatfs\src\ffconf_template.h</name>
     </file>
     <file>
-      <name>$PROJ_DIR$\..\..\..\src\fatfs\src\fsl_sdspi_disk\fsl_sdspi_disk.c</name>
+      <name>$PROJ_DIR$\..\..\..\src\fatfs\src\FSL_SDSPI_DISK\fsl_sdspi_disk.c</name>
     </file>
     <file>
       <name>$PROJ_DIR$\..\..\..\src\fatfs\src\fsl_sdspi_disk\fsl_sdspi_disk.h</name>
     </file>
     <file>
       <name>$PROJ_DIR$\..\..\..\src\fatfs\src\integer.h</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\..\src\fatfs\src\option\unicode.c</name>
     </file>
   </group>
   <group>
