@@ -53,10 +53,14 @@ Sequencer::Sequencer()
 
 void Sequencer::init()
 {
-    m_samplesPerBeat = static_cast<uint32_t>(m_sampleRate * 60.0 / m_tempo);
+    m_samplesPerBeat = static_cast<uint32_t>(m_sampleRate * 60.0f / m_tempo);
 
     m_sequenceLength = strlen(m_sequence);
     m_sequenceTime = m_sequenceLength * m_samplesPerBeat;
+
+    m_firstEvent = NULL;
+    m_lastEvent = NULL;
+    m_elapsed = 0;
 
     // Put all events on free list.
     int i;
@@ -65,6 +69,7 @@ void Sequencer::init()
     {
         m_events[i].m_next = &m_events[i + 1];
     }
+    m_events[i].m_next = NULL;
 
     // Queue up the sequence.
     enqueue_sequence(0);

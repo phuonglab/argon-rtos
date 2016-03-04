@@ -44,6 +44,7 @@
 #include "arm_math.h"
 #include <stdio.h>
 #include <math.h>
+#include <stdlib.h>
 
 //------------------------------------------------------------------------------
 // Definitions
@@ -58,6 +59,13 @@ template <typename T>
 inline T abs(T a)
 {
     return (a > 0) ? a : -a;
+}
+
+template <typename T>
+inline T max3(T a, T b, T c)
+{
+    T tmp = (a > b) ? a : b;
+    return (tmp > c) ? tmp : c;
 }
 
 class SineGenerator : public AudioFilter
@@ -158,7 +166,7 @@ i2c_master_handle_t g_i2cHandle;
 fxos_handle_t g_fxos;
 FATFS g_fs;
 
-Ar::ThreadWithStack<512> g_accelThread("accel", accel_thread, 0, 120, kArSuspendThread);
+Ar::ThreadWithStack<1024> g_accelThread("accel", accel_thread, 0, 120, kArSuspendThread);
 
 //------------------------------------------------------------------------------
 // Code
@@ -322,7 +330,7 @@ void accel_thread(void * arg)
     FXOS_Init(&g_fxos);
 
     const int kHistoryCount = 50;
-    int16_t history[kHistoryCount];
+    float history[kHistoryCount];
     uint32_t head = 0;
     uint32_t count = 0;
 
@@ -337,12 +345,19 @@ void accel_thread(void * arg)
 //                    data.magX, data.magY, data.magZ);
 
             // Get maximum accel in positive or negative.
-            int16_t maxAccel = MAX(data.accelX, MAX(data.accelY, data.accelZ));
-            int16_t minAccel = MIN(data.accelX, MIN(data.accelY, data.accelZ));
-            if (abs(minAccel) > abs(maxAccel))
-            {
-                maxAccel = minAccel;
-            }
+//             data.accelZ -= 16384; // subtract out gravity (device must be stationary).
+            const float kGScale = 16384.0f;
+            float xG = float(data.accelX) / kGScale;
+            float yG = float(data.accelY) / kGScale;
+            float zG = float(data.accelZ) / kGScale;
+            zG -= 1.0f;
+            float maxAccel = max3(abs(xG), abs(yG), abs(zG));
+//             int16_t maxAccel = MAX(abs(data.accelX), MAX(abs(data.accelY), abs(data.accelZ)));
+//             int16_t minAccel = MIN(data.accelX, MIN(data.accelY, data.accelZ));
+//             if (abs(minAccel) > abs(maxAccel))
+//             {
+//                 maxAccel = minAccel;
+//             }
 
             history[head] = maxAccel;
             head = (head + 1) % kHistoryCount;
@@ -351,8 +366,8 @@ void accel_thread(void * arg)
                 ++count;
             }
 
-            uint32_t sum = 0;
-            uint32_t average;
+            float sum = 0;
+            float average;
             uint32_t i = head;
             uint32_t j = 0;
             for (; j < count; ++j)
@@ -360,9 +375,10 @@ void accel_thread(void * arg)
                 sum += history[i];
                 i = (i + 1) % kHistoryCount;
             }
-            average = sum / kHistoryCount;
+            average = sum / float(kHistoryCount);
 
-            float feedback = float(average) / 4096.0;
+//             float g = float(average) / 16384.0f;
+            float feedback = average; // / 2.0f;
             g_delay.set_feedback(feedback);
         }
 
@@ -407,7 +423,7 @@ void init_audio_out()
     g_kickSeq.set_sample_rate(kSampleRate);
     g_kickSeq.set_tempo(100.0f);
 //     g_kickSeq.set_sequence("x---x---x---x-x-x---x---x---x---xx--x--x--xxx-x-");
-    g_kickSeq.set_sequence("x---x-x----xx---");
+    g_kickSeq.set_sequence("x---"); //x-x----xx---");
     g_kickSeq.init();
 
     g_kickGen.set_sample_rate(kSampleRate);
@@ -420,7 +436,7 @@ void init_audio_out()
 
     g_bassSeq.set_sample_rate(kSampleRate);
     g_bassSeq.set_tempo(100.0f);
-    g_bassSeq.set_sequence("--s>>>p-----s>>>>>>p----");
+    g_bassSeq.set_sequence("--sp"); //"--s>>>p-----s>>>>>>p----");
     g_bassSeq.init();
 
     g_bassGen.set_sample_rate(kSampleRate);
@@ -466,9 +482,128 @@ void init_audio_out()
 //     g_mixer.set_input(2, &g_tickGen, 0.3f);
 }
 
+void list_dir(const char * path)
+{
+    FRESULT result;
+    DIR dir;
+    result = f_opendir(&dir, path);
+    if (result == FR_OK)
+    {
+        FILINFO info;
+        char longFileNameBuffer[_MAX_LFN + 1];
+        info.lfname = longFileNameBuffer;
+        info.lfsize = sizeof(longFileNameBuffer);
+        while (true)
+        {
+            result = f_readdir(&dir, &info);
+            if (result != FR_OK || info.fname[0] == 0)
+            {
+                break;
+            }
+            const char * filename = info.lfname[0] ? info.lfname : info.fname;
+            printf("%s%s%s\n", path, filename, (info.fattrib & AM_DIR) ? "/" : "");
+        }
+        f_closedir(&dir);
+    }
+}
+
 void init_fs()
 {
     f_mount(&g_fs, "", 0);
+//     list_dir("/");
+
+    static FIL fp;
+    FRESULT result;
+    result = f_open(&fp, "1.txt", FA_READ | FA_OPEN_EXISTING);
+    if (result != FR_OK)
+    {
+        printf("Failed to open file\n");
+        return;
+    }
+
+    f_lseek(&fp, 0);
+
+    while (!f_eof(&fp))
+    {
+        static char s_buf[128];
+        char * buf = f_gets(s_buf, sizeof(s_buf), &fp);
+        if (!buf)
+        {
+            break;
+        }
+
+        // Handle comment line.
+        if (buf[0] == '#')
+        {
+            continue;
+        }
+
+        // Split into key and value.
+        char * key = buf;
+        char * value = buf;
+        char * tmpbuf;
+        bool done = false;
+        while (!done)
+        {
+            char c = *buf++;
+            switch (c)
+            {
+                case 0:
+                case '\r':
+                case '\n':
+                    tmpbuf = buf - 1;
+                    *tmpbuf = 0;
+                    done = true;
+                    break;
+                case '=':
+                    tmpbuf = buf - 1;
+                    *tmpbuf = 0;
+                    value = buf;
+                    break;
+                default:
+                    break;
+            }
+        }
+        if (value == key)
+        {
+            printf("Invalid syntax: %s\n", s_buf);
+            continue;
+        }
+
+        // Scan for sequence nunber.
+        if (strcmp(key, "tempo") == 0)
+        {
+            int tempo = atoi(value);
+            printf("Setting tempo to %d bpm\n", tempo);
+            g_kickSeq.set_tempo(tempo);
+            g_bassSeq.set_tempo(tempo);
+        }
+        else
+        {
+            int sequenceNumber = atoi(key);
+            printf("Setting sequence #%d to: %s\n", sequenceNumber, value);
+            switch (sequenceNumber)
+            {
+                case 0:
+                    g_kickSeq.set_sequence(value);
+
+                    break;
+                case 1:
+                    g_bassSeq.set_sequence(value);
+                    break;
+                default:
+                    printf("Invalid sequence number #%d!\n", sequenceNumber);
+                    break;
+            }
+        }
+
+        printf("%s", buf);
+    }
+
+    g_kickSeq.init();
+    g_bassSeq.init();
+
+    f_close(&fp);
 }
 
 void init_board()
@@ -533,8 +668,8 @@ int main(void)
     printf("Hello...\r\n");
 
     init_board();
-    init_fs();
     init_audio_out();
+    init_fs();
 
     g_myTimer.start();
     g_audioOut.start();
