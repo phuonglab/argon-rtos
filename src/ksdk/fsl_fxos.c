@@ -113,7 +113,7 @@ status_t FXOS_Init(fxos_handle_t *fxos_handle)
     FXOS_WriteReg(fxos_handle, ASLP_COUNT_REG, 8);
 #endif
     /* default set to 4g mode */
-    FXOS_WriteReg(fxos_handle, XYZ_DATA_CFG_REG, FULL_SCALE_4G);
+    FXOS_WriteReg(fxos_handle, XYZ_DATA_CFG_REG, FULL_SCALE_2G);
 
 #ifdef EN_INTERRUPTS
     /* enable data-ready, auto-sleep and motion detection interrupts */
