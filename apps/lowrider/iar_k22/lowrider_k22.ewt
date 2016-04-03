@@ -2202,7 +2202,7 @@
       <name>$PROJ_DIR$\..\..\..\src\fatfs\src\FSL_SDSPI_DISK\fsl_sdspi_disk.c</name>
     </file>
     <file>
-      <name>$PROJ_DIR$\..\..\..\src\fatfs\src\fsl_sdspi_disk\fsl_sdspi_disk.h</name>
+      <name>$PROJ_DIR$\..\..\..\src\fatfs\src\FSL_SDSPI_DISK\fsl_sdspi_disk.h</name>
     </file>
     <file>
       <name>$PROJ_DIR$\..\..\..\src\fatfs\src\integer.h</name>
@@ -2356,6 +2356,12 @@
     </file>
     <file>
       <name>$PROJ_DIR$\..\src\rbj_filter.h</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\src\sequence_reader.cpp</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\src\sequence_reader.h</name>
     </file>
     <file>
       <name>$PROJ_DIR$\..\src\sequencer.cpp</name>

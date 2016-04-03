@@ -39,14 +39,22 @@
 /*!
  * @brief Audio event sequencer.
  *
- * Tracks trigger events within a musical sequence. Only simple triggers are supported,
- * not note numbers or values.
+ * Tracks trigger events within a musical sequence. The only events supported are simple triggers
+ * and note start and stop. Note numbers or values are not supported.
  *
  * Uses a simple sequence chart in string format. Each character of the string represents
- * one beat. An "x" character causes an event to fire for that beat. Any other character
- * is ignored.
+ * one beat. A character corresponding to one of the event types causes that event to fire for that
+ * beat. Any other characters are ignored.
  *
- * An example two bar sequence might be: "x---x-x-"
+ * The character to event table:
+ * - 'x' : Simple trigger event
+ * - 's' : Note start event
+ * - 'p' : Note stop event
+ *
+ * An example two bar percussion sequence might be: "x---x-x-"
+ *
+ * For note sequences, it is normal to use a character like '>' or '.' between the start and stop
+ * events. Example: '--s>>>>p'
  */
 class Sequencer
 {

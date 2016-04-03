@@ -34,17 +34,18 @@
 #include "audio_ramp.h"
 #include "asr_envelope.h"
 #include "sequencer.h"
+#include "sequence_reader.h"
 #include "audio_mixer.h"
 #include "delay_line.h"
 #include "rbj_filter.h"
 #include "fsl_port.h"
 #include "fsl_gpio.h"
 #include "fsl_fxos.h"
-#include "ff.h"
 #include "arm_math.h"
 #include <stdio.h>
 #include <math.h>
 #include <stdlib.h>
+#include <assert.h>
 
 //------------------------------------------------------------------------------
 // Definitions
@@ -136,6 +137,7 @@ protected:
 
 void accel_thread(void * arg);
 void init_audio_out();
+void init_fs();
 void init_board();
 
 //------------------------------------------------------------------------------
@@ -164,7 +166,9 @@ RBJFilter g_filter;
 DelayLine g_delay;
 i2c_master_handle_t g_i2cHandle;
 fxos_handle_t g_fxos;
-FATFS g_fs;
+
+SequenceInfo * g_firstSequence = 0;
+uint32_t g_sequenceCount = 0;
 
 Ar::ThreadWithStack<1024> g_accelThread("accel", accel_thread, 0, 120, kArSuspendThread);
 
@@ -482,128 +486,29 @@ void init_audio_out()
 //     g_mixer.set_input(2, &g_tickGen, 0.3f);
 }
 
-void list_dir(const char * path)
-{
-    FRESULT result;
-    DIR dir;
-    result = f_opendir(&dir, path);
-    if (result == FR_OK)
-    {
-        FILINFO info;
-        char longFileNameBuffer[_MAX_LFN + 1];
-        info.lfname = longFileNameBuffer;
-        info.lfsize = sizeof(longFileNameBuffer);
-        while (true)
-        {
-            result = f_readdir(&dir, &info);
-            if (result != FR_OK || info.fname[0] == 0)
-            {
-                break;
-            }
-            const char * filename = info.lfname[0] ? info.lfname : info.fname;
-            printf("%s%s%s\n", path, filename, (info.fattrib & AM_DIR) ? "/" : "");
-        }
-        f_closedir(&dir);
-    }
-}
-
 void init_fs()
 {
-    f_mount(&g_fs, "", 0);
-//     list_dir("/");
+    SequenceReader * reader = new SequenceReader();
+    assert(reader);
+    reader->init();
+    g_sequenceCount = reader->scan_dir("/", &g_firstSequence);
 
-    static FIL fp;
-    FRESULT result;
-    result = f_open(&fp, "1.txt", FA_READ | FA_OPEN_EXISTING);
-    if (result != FR_OK)
+    if (g_sequenceCount == 0)
     {
-        printf("Failed to open file\n");
+        printf("No sequences were found on SD card.\n");
         return;
     }
 
-    f_lseek(&fp, 0);
+    // Set sequence to the first.
+    printf("Setting tempo to %d bpm\n", g_firstSequence->tempo);
+    g_kickSeq.set_tempo(g_firstSequence->tempo);
+    g_bassSeq.set_tempo(g_firstSequence->tempo);
 
-    while (!f_eof(&fp))
-    {
-        static char s_buf[128];
-        char * buf = f_gets(s_buf, sizeof(s_buf), &fp);
-        if (!buf)
-        {
-            break;
-        }
+    printf("Sequence #0: %s\n", g_firstSequence->channels[0]);
+    g_kickSeq.set_sequence(g_firstSequence->channels[0]);
 
-        // Handle comment line.
-        if (buf[0] == '#')
-        {
-            continue;
-        }
-
-        // Split into key and value.
-        char * key = buf;
-        char * value = buf;
-        char * tmpbuf;
-        bool done = false;
-        while (!done)
-        {
-            char c = *buf++;
-            switch (c)
-            {
-                case 0:
-                case '\r':
-                case '\n':
-                    tmpbuf = buf - 1;
-                    *tmpbuf = 0;
-                    done = true;
-                    break;
-                case '=':
-                    tmpbuf = buf - 1;
-                    *tmpbuf = 0;
-                    value = buf;
-                    break;
-                default:
-                    break;
-            }
-        }
-        if (value == key)
-        {
-            printf("Invalid syntax: %s\n", s_buf);
-            continue;
-        }
-
-        // Scan for sequence nunber.
-        if (strcmp(key, "tempo") == 0)
-        {
-            int tempo = atoi(value);
-            printf("Setting tempo to %d bpm\n", tempo);
-            g_kickSeq.set_tempo(tempo);
-            g_bassSeq.set_tempo(tempo);
-        }
-        else
-        {
-            int sequenceNumber = atoi(key);
-            printf("Setting sequence #%d to: %s\n", sequenceNumber, value);
-            switch (sequenceNumber)
-            {
-                case 0:
-                    g_kickSeq.set_sequence(value);
-
-                    break;
-                case 1:
-                    g_bassSeq.set_sequence(value);
-                    break;
-                default:
-                    printf("Invalid sequence number #%d!\n", sequenceNumber);
-                    break;
-            }
-        }
-
-        printf("%s", buf);
-    }
-
-    g_kickSeq.init();
-    g_bassSeq.init();
-
-    f_close(&fp);
+    printf("Sequence #1: %s\n", g_firstSequence->channels[1]);
+    g_kickSeq.set_sequence(g_firstSequence->channels[1]);
 }
 
 void init_board()
