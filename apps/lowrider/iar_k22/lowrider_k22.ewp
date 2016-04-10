@@ -316,6 +316,7 @@
         <option>
           <name>CCIncludePath2</name>
           <state>$PROJ_DIR$\..\src</state>
+          <state>$PROJ_DIR$\..\src\board_k22f</state>
           <state>$PROJ_DIR$\..\..\..\src\devices\MK22F51212</state>
           <state>$PROJ_DIR$\..\..\..\src\ksdk</state>
           <state>$PROJ_DIR$\..\..\..\src\fatfs\src</state>
@@ -2145,6 +2146,15 @@
   </group>
   <group>
     <name>src</name>
+    <group>
+      <name>board_k22f</name>
+      <file>
+        <name>$PROJ_DIR$\..\src\board_k22f\board.cpp</name>
+      </file>
+      <file>
+        <name>$PROJ_DIR$\..\src\board_k22f\board.h</name>
+      </file>
+    </group>
     <file>
       <name>$PROJ_DIR$\..\src\ar_config.h</name>
     </file>

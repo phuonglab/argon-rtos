@@ -2303,6 +2303,15 @@
   </group>
   <group>
     <name>src</name>
+    <group>
+      <name>board_k22f</name>
+      <file>
+        <name>$PROJ_DIR$\..\src\board_k22f\board.cpp</name>
+      </file>
+      <file>
+        <name>$PROJ_DIR$\..\src\board_k22f\board.h</name>
+      </file>
+    </group>
     <file>
       <name>$PROJ_DIR$\..\src\ar_config.h</name>
     </file>
